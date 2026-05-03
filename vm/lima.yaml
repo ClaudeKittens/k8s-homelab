@@ -1,0 +1,96 @@
+# Lima VM configuration for k8s-homelab
+#
+# Target platform: Apple Silicon Mac Mini (aarch64)
+# Uses macOS Virtualization Framework (vmType: vz) — faster and lower-overhead
+# than QEMU on Apple Silicon.
+#
+# Start this VM with a stable name so bootstrap scripts can reference it:
+#   limactl start --name=k8s-homelab vm/lima.yaml
+#
+# Useful commands after start:
+#   limactl list                          # show VM status and IP
+#   limactl shell k8s-homelab            # open a shell inside the VM
+#   limactl stop k8s-homelab             # graceful shutdown
+#   limactl delete k8s-homelab           # remove VM entirely
+
+vmType: vz
+
+# Rosetta is disabled — we are running native aarch64 Linux.
+# Enable rosetta if you ever need to run x86_64 binaries in the VM.
+rosetta:
+  enabled: false
+  binfmt: false
+
+images:
+  # Ubuntu 24.04 LTS (Noble) — arm64 cloud image
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+
+# Resource allocation — tuned for a single-node homelab with Prometheus, Loki,
+# Grafana, OTel Collector, and Flux all running side by side.
+cpus: 4
+memory: "8GiB"
+disk: "50GiB"
+
+# ── Port Forwards ─────────────────────────────────────────────────────────────
+# Lima forwards these guest ports to 127.0.0.1 on the Mac host.
+# k3s writes https://127.0.0.1:6443 in its kubeconfig by default, so kubectl
+# on the host works without any address rewriting.
+portForwards:
+  - guestPort: 6443
+    hostPort: 6443
+    hostIP: "127.0.0.1"
+  # NodePort range — handy for quick service access without port-forward
+  - guestPort: 30000
+    hostPort: 30000
+    hostIP: "127.0.0.1"
+  - guestPort: 30001
+    hostPort: 30001
+    hostIP: "127.0.0.1"
+  - guestPort: 30002
+    hostPort: 30002
+    hostIP: "127.0.0.1"
+
+# ── SSH ───────────────────────────────────────────────────────────────────────
+# Fixed SSH port so the bootstrap module can reference it predictably.
+# Lima auto-copies all ~/.ssh/*.pub keys into the VM's authorized_keys.
+ssh:
+  localPort: 60022
+  loadDotSSHPubKeys: true
+
+# ── Networking ────────────────────────────────────────────────────────────────
+# vzNAT provides internet access for the VM via the macOS NAT stack.
+networks:
+  - vzNAT: true
+
+# ── Filesystem Mounts ─────────────────────────────────────────────────────────
+# Home directory is mounted read-only for file sharing.
+# /tmp/lima is a writable scratch area.
+mounts:
+  - location: "~"
+    writable: false
+  - location: "/tmp/lima"
+    writable: true
+
+# ── Cloud-init Provisioning ───────────────────────────────────────────────────
+# Runs once on first boot as root. Installs packages k3s depends on:
+#   - curl / wget      — download k3s installer
+#   - open-iscsi       — iSCSI support (required by some CSI drivers)
+#   - nfs-common       — NFS client (for PersistentVolumes over NFS)
+#   - apparmor         — required by containerd on Ubuntu 24.04
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -q
+      apt-get install -y \
+        curl \
+        wget \
+        open-iscsi \
+        nfs-common \
+        apparmor \
+        apparmor-utils
+      # Enable iscsid so Longhorn / other CSI drivers can attach volumes
+      systemctl enable --now iscsid || true
