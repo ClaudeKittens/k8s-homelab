@@ -1,8 +1,5 @@
 # Terraform / OpenTofu
 **/.terraform/
-*.tfstate
-*.tfstate.backup
-*.tfstate.lock.info
 override.tf
 override.tf.json
 *_override.tf
