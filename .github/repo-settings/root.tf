@@ -15,16 +15,3 @@ resource "github_repository" "k8s_homelab" {
   squash_merge_commit_title   = "PR_TITLE"
   squash_merge_commit_message = "PR_BODY"
 }
-
-resource "github_branch_protection" "main" {
-  repository_id = github_repository.k8s_homelab.node_id
-  pattern       = "main"
-
-  required_linear_history = true
-
-  required_pull_request_reviews {
-    dismiss_stale_reviews      = true
-    require_last_push_approval = false
-    required_approving_review_count = 0
-  }
-}
