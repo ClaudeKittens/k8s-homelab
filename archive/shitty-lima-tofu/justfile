@@ -1,0 +1,4 @@
+vm-up:
+    limactl start --name=k8s-homelab vm/lima.yaml
+vm-stop:
+    limactl stop k8s-homelab
