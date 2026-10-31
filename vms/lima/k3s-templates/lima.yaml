@@ -1,0 +1,122 @@
+# This file was used to create k3s-server. It was the then-default for `template:k3s`
+
+
+
+
+# Deploy kubernetes via k3s (which installs a bundled containerd).
+# $ limactl start ./k3s.yaml
+# $ limactl shell k3s kubectl
+#
+# It can be accessed from the host by exporting the kubeconfig file;
+# the ports are already forwarded automatically by lima:
+#
+# $ export KUBECONFIG=$(limactl list k3s --format 'unix://{{.Dir}}/copied-from-guest/kubeconfig.yaml')
+# $ kubectl get no
+# NAME       STATUS   ROLES                  AGE   VERSION
+# lima-k3s   Ready    control-plane,master   69s   v1.21.1+k3s1
+
+# A multi-node cluster can be created by starting multiple instances of this template
+# connected via the `lima:user-v2` network.
+#
+# $ limactl start --name k3s-0 --network lima:user-v2 template:k3s
+# $ printf "https://lima-%s.internal:6443\n" k3s-0
+# (The url for the start command printed here)
+# $ limactl shell k3s-0 sudo cat /var/lib/rancher/k3s/server/node-token
+# (The token for the start command printed here)
+#
+# $ limactl start --name k3s-1 --network lima:user-v2 template:k3s \
+#                 --set '.param.url="<URL_FROM_ABOVE>" | .param.token="<TOKEN_FROM_ABOVE>"'
+
+minimumLimaVersion: 2.0.0
+
+# Mounts are disabled in this template, but can be enabled optionally.
+mounts: []
+# containerd is managed by k3s, not by Lima, so the values are set to false here.
+containerd:
+  system: false
+  user: false
+provision:
+- mode: system
+  script: |
+    #!/bin/sh
+    if [ ! -d /var/lib/rancher/k3s ]; then
+    {{if not ( and .Param.url .Param.token )}}
+            curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode 644" sh -
+    {{else}}
+            curl -sfL https://get.k3s.io | K3S_URL={{.Param.url}} K3S_TOKEN={{.Param.token}} sh -
+    {{end}}
+    fi
+probes:
+- script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    {{if not ( and .Param.url .Param.token )}}
+    if ! timeout 30s bash -c "until test -f /etc/rancher/k3s/k3s.yaml; do sleep 3; done"; then
+            echo >&2 "k3s is not running yet"
+            exit 1
+    fi
+    {{else}}
+    # create an empty file so that the "copyToHost" does not fail
+    sudo mkdir -p /etc/rancher/k3s && sudo touch /etc/rancher/k3s/k3s.yaml
+    {{end}}
+  hint: |
+    The k3s kubeconfig file has not yet been created.
+    Run "limactl shell k3s sudo journalctl -u k3s" to check the log.
+    If that is still empty, check the bottom of the log at "/var/log/cloud-init-output.log".
+copyToHost:
+- guest: "/etc/rancher/k3s/k3s.yaml"
+  host: "{{.Dir}}/copied-from-guest/kubeconfig.yaml"
+  deleteOnStop: true
+message: |
+  {{- if not ( and .Param.url .Param.token ) -}}
+  To run `kubectl` on the host (assumes kubectl is installed), run the following commands:
+  ------
+  export KUBECONFIG="{{.Dir}}/copied-from-guest/kubeconfig.yaml"
+  kubectl ...
+  ------
+  {{end}}
+param:
+  url: ""
+  token: ""
+
+images:
+# Try to use release-yyyyMMdd image if available. Note that release-yyyyMMdd will be removed after several months.
+
+- location: "https://cloud-images.ubuntu.com/releases/noble/release-20260321/ubuntu-24.04-server-cloudimg-amd64.img"
+  arch: "x86_64"
+  digest: "sha256:5c3ddb00f60bc455dac0862fabe9d8bacec46c33ac1751143c5c3683404b110d"
+- location: "https://cloud-images.ubuntu.com/releases/noble/release-20260321/ubuntu-24.04-server-cloudimg-arm64.img"
+  arch: "aarch64"
+  digest: "sha256:1ea801e659d2f5035ac294e0faab0aac9b6ba66753df933ba5c7beab0c689bd0"
+- location: "https://cloud-images.ubuntu.com/releases/noble/release-20260321/ubuntu-24.04-server-cloudimg-riscv64.img"
+  arch: "riscv64"
+  digest: "sha256:7ec1d6d7947b491243a328072a69bfb33cd3f27882f389c4d8d3f8bc882188a6"
+- location: "https://cloud-images.ubuntu.com/releases/noble/release-20260321/ubuntu-24.04-server-cloudimg-armhf.img"
+  arch: "armv7l"
+  digest: "sha256:fc656c76e91e4a1ce11421c2c7881355e7f0210a92814608843e67f79fbaf455"
+- location: "https://cloud-images.ubuntu.com/releases/noble/release-20260321/ubuntu-24.04-server-cloudimg-s390x.img"
+  arch: "s390x"
+  digest: "sha256:180375acaf37b2cd9c12212ef9842c46bf4c280e273dc2671b24024886a94388"
+- location: "https://cloud-images.ubuntu.com/releases/noble/release-20260321/ubuntu-24.04-server-cloudimg-ppc64el.img"
+  arch: "ppc64le"
+  digest: "sha256:3e768e38c9d78b0be0c6cabd55f260d05022bc60fe697b882a510ccb108c32ae"
+# Fallback to the latest release image.
+# Hint: run `limactl prune` to invalidate the cache
+
+- location: https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-amd64.img
+  arch: x86_64
+
+- location: https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-arm64.img
+  arch: aarch64
+
+- location: https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-riscv64.img
+  arch: riscv64
+
+- location: https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-armhf.img
+  arch: armv7l
+
+- location: https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-s390x.img
+  arch: s390x
+
+- location: https://cloud-images.ubuntu.com/releases/noble/release/ubuntu-24.04-server-cloudimg-ppc64el.img
+  arch: ppc64le

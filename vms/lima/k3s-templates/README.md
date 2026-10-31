@@ -1,17 +1,15 @@
 # vms/lima/k3s-templates
 
-Uses Lima's built-in `template://k3s` directly. Fastest path to a running cluster — no custom VM definition, no separate bootstrap step. k3s is installed as part of VM provisioning.
-
-Nodes communicate via `lima:user-v2` (no socket_vmnet required).
+Uses Lima's built-in `template:k3s` directly. Fastest path to a running cluster — no custom VM definition, no separate bootstrap step. k3s is installed as part of VM provisioning.
 
 ## Usage
 
 ```sh
-# Single node
-just up-server
+# Create the server (first time only)
+just create
 
-# Add an agent
-just up-agent k3s-agent k3s-server
+# Start it again after a stop
+just up
 
 # Use kubectl
 just kubectl k3s-server get nodes
@@ -22,7 +20,6 @@ kubectl get nodes
 
 # Tear down
 just down k3s-server
-just down k3s-agent
 ```
 
 ## Tradeoffs
