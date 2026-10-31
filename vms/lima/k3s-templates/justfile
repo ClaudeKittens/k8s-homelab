@@ -1,0 +1,40 @@
+set shell := ["bash", "-c"]
+
+# Start a single-node k3s cluster
+up-server name="k3s-server":
+    limactl start --name {{ name }} template:k3s
+
+# Add an agent node to an existing server
+# Usage: just up-agent k3s-agent k3s-server
+up-agent name server="k3s-server":
+    #!/bin/bash
+    set -euo pipefail
+    url="https://lima-{{ server }}.internal:6443"
+    token=$(limactl shell {{ server }} sudo cat /var/lib/rancher/k3s/server/node-token)
+    limactl start --name {{ name }} --network lima:user-v2 template://k3s \
+        --set ".param.url=\"${url}\" | .param.token=\"${token}\""
+
+# Open a shell in a VM
+shell name:
+    limactl shell {{ name }}
+
+# Run kubectl via the server node
+kubectl name="k3s-server" *args="":
+    limactl shell {{ name }} -- kubectl {{ args }}
+
+# Export kubeconfig to a local file
+kubeconfig name="k3s-server":
+    @echo "$(limactl list {{ name }} --format 'unix://{{{{.Dir}}}}/copied-from-guest/kubeconfig.yaml')"
+
+# Stop a VM
+stop name="k3s-server":
+    limactl stop {{ name }}
+
+# Tear down and remove a VM completely
+down name:
+    limactl stop {{ name }} || true
+    limactl delete {{ name }}
+
+# List all Lima VMs
+list:
+    limactl list

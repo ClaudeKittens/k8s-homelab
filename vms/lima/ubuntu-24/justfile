@@ -1,0 +1,22 @@
+set shell := ["bash", "-c"]
+
+# Create and start a VM: `just up my-node`
+up name:
+    limactl start --name {{ name }} node.yaml
+
+# Open a shell in a VM
+shell name:
+    limactl shell {{ name }}
+
+# Stop a VM
+stop name:
+    limactl stop {{ name }}
+
+# Tear down and remove a VM completely
+down name:
+    limactl stop {{ name }} || true
+    limactl delete {{ name }}
+
+# List all Lima VMs
+list:
+    limactl list
