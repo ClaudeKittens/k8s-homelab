@@ -24,9 +24,10 @@ kubeconfig name="k3s-server":
 stop name="k3s-server":
     limactl stop {{ name }}
 
-# Tear down and remove a VM completely
-down name:
+down name="k3s-server":
     limactl stop {{ name }} || true
+
+delete name="k3s-server":
     limactl delete {{ name }}
 
 # List all Lima VMs
