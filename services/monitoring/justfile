@@ -1,0 +1,11 @@
+set shell := ["bash", "-c"]
+
+# Install the whole monitoring stack
+install:
+    just victoria-metrics/install
+    just grafana/install
+
+# Remove the whole monitoring stack (PVCs and their data are kept)
+uninstall:
+    just grafana/uninstall
+    just victoria-metrics/uninstall

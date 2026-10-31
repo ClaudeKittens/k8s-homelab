@@ -1,0 +1,54 @@
+# Values for grafana-community/grafana
+# Reference: helm show values grafana-community/grafana
+
+# Dashboards, users, and settings made in the UI are kept across restarts.
+# Uses k3s's default local-path StorageClass (on the VM's disk).
+persistence:
+  enabled: true
+  size: 1Gi
+  # The chart owns this PVC, so `helm uninstall` would delete it without this.
+  annotations:
+    helm.sh/resource-policy: keep
+
+# No adminPassword is set, so the chart generates one into the `grafana` secret.
+# Read it with `just password`.
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      # VictoriaMetrics speaks the Prometheus query API, so the built-in
+      # Prometheus datasource works without installing a plugin.
+      - name: VictoriaMetrics
+        type: prometheus
+        uid: victoria-metrics
+        url: http://victoria-metrics.monitoring.svc:8428
+        access: proxy
+        isDefault: true
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        options:
+          path: /var/lib/grafana/dashboards/default
+
+dashboards:
+  default:
+    # VictoriaMetrics single-node self-monitoring
+    victoria-metrics:
+      gnetId: 10229
+      revision: 60
+      datasource: VictoriaMetrics
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 512Mi

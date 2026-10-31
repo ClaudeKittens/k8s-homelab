@@ -1,0 +1,35 @@
+set shell := ["bash", "-c"]
+
+export KUBECONFIG := env("KUBECONFIG", home_directory() / ".lima/k3s-server/copied-from-guest/kubeconfig.yaml")
+
+namespace := "monitoring"
+release := "grafana"
+chart := "grafana-community/grafana"
+version := "14.2.0"
+
+# Add the Grafana community Helm repo
+repo:
+    helm repo add grafana-community https://grafana-community.github.io/helm-charts
+    helm repo update grafana-community
+
+# Install or upgrade Grafana
+install: repo
+    helm upgrade --install {{ release }} {{ chart }} --version {{ version }} \
+        --namespace {{ namespace }} --create-namespace \
+        --values values.yaml --wait
+
+# Remove Grafana (the PVC and its data are kept)
+uninstall:
+    helm uninstall {{ release }} --namespace {{ namespace }}
+
+# Show pods and PVCs
+status:
+    kubectl get pods,pvc --namespace {{ namespace }} -l app.kubernetes.io/instance={{ release }}
+
+# Print the generated admin password
+pw:
+    @kubectl get secret --namespace {{ namespace }} {{ release }} -o jsonpath='{.data.admin-password}' | base64 -d; echo
+
+# Open Grafana at http://localhost:3000 (user: admin)
+ui:
+    kubectl port-forward --namespace {{ namespace }} svc/{{ release }} 3000:80

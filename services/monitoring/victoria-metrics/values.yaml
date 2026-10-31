@@ -1,0 +1,27 @@
+# Values for vm/victoria-metrics-single
+# Reference: helm show values vm/victoria-metrics-single
+
+server:
+  # Stable service name for other services to point at:
+  # http://victoria-metrics.monitoring.svc:8428
+  fullnameOverride: victoria-metrics
+
+  retentionPeriod: 30d
+
+  # Uses k3s's default local-path StorageClass. Data lives on the VM's disk,
+  # so it survives pod and VM restarts but not deleting the VM.
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+
+  # Scrape the cluster itself (apiserver, nodes, cadvisor, annotated services/pods)
+  # using the chart's built-in Prometheus-style scrape config.
+  scrape:
+    enabled: true
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

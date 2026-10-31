@@ -1,0 +1,31 @@
+set shell := ["bash", "-c"]
+
+export KUBECONFIG := env("KUBECONFIG", home_directory() / ".lima/k3s-server/copied-from-guest/kubeconfig.yaml")
+
+namespace := "monitoring"
+release := "victoria-metrics"
+chart := "vm/victoria-metrics-single"
+version := "0.50.0"
+
+# Add the VictoriaMetrics Helm repo
+repo:
+    helm repo add vm https://victoriametrics.github.io/helm-charts/
+    helm repo update vm
+
+# Install or upgrade VictoriaMetrics
+install: repo
+    helm upgrade --install {{ release }} {{ chart }} --version {{ version }} \
+        --namespace {{ namespace }} --create-namespace \
+        --values values.yaml --wait
+
+# Remove VictoriaMetrics (the PVC and its data are kept)
+uninstall:
+    helm uninstall {{ release }} --namespace {{ namespace }}
+
+# Show pods and PVCs
+status:
+    kubectl get pods,pvc --namespace {{ namespace }} -l app.kubernetes.io/instance={{ release }}
+
+# Open the VictoriaMetrics UI at http://localhost:8428/vmui
+ui:
+    kubectl port-forward --namespace {{ namespace }} svc/victoria-metrics 8428:8428
